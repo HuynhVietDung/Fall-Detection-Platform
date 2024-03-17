@@ -1,3 +1,5 @@
+# TODO: this code is not checked
+
 import cv2
 import os
 
