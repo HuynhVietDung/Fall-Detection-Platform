@@ -5,7 +5,7 @@ from record_video import VideoRecorder
 
 if __name__ == '__main__':
 
-    output_folder = "output_folder"
+    output_folder = "output_folder_3"
     sub_folder1 = "Camera 1"
     sub_folder2 = "Camera 2"
 
@@ -17,8 +17,8 @@ if __name__ == '__main__':
     os.makedirs(c2_path, exist_ok=True)
 
     #
-    recorder1 = VideoRecorder(output_path=c1_path, camera_idx=0)
-    recorder2 = VideoRecorder(output_path=c2_path, camera_idx=1)
+    recorder1 = VideoRecorder(output_path=c1_path)
+    recorder2 = VideoRecorder(output_path=c2_path)
 
     #
     c1_thread = threading.Thread(target=recorder1.start_recording)  # Camera 1
