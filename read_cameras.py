@@ -1,33 +1,43 @@
 import os
 import threading
 from record_video import VideoRecorder
+from typing import List
 
 
-if __name__ == '__main__':
+def create_folders(out_folder: str, number_of_sub_folder: int = 0) -> List[str]:
+    # Create the output folder if it doesn't exist
+    os.makedirs(out_folder, exist_ok=True)
 
-    output_folder = "output_folder_3"
-    sub_folder1 = "Camera 1"
-    sub_folder2 = "Camera 2"
+    path_list: List = []
+    # Create sub folders
+    for i in range(number_of_sub_folder):
+        path = os.path.join(out_folder, f"Camera {i + 1}")
+        path_list.append(path)
+        os.makedirs(path,  exist_ok=True)
+    return path_list
 
-    c1_path = os.path.join(output_folder, sub_folder1)
-    c2_path = os.path.join(output_folder, sub_folder2)
 
-    os.makedirs(output_folder, exist_ok=True)
-    os.makedirs(c1_path, exist_ok=True)
-    os.makedirs(c2_path, exist_ok=True)
+if __name__ == "__main__":
+    output_folder = "output_folder"
+    camera_ids = [0, 1]
+    n_camera = 2
+    video_duration = 10
+    overlap_time = 7
 
-    #
-    recorder1 = VideoRecorder(output_path=c1_path)
-    recorder2 = VideoRecorder(output_path=c2_path)
+    # Create output folder for each camera.
+    output_folder_list = create_folders(output_folder, number_of_sub_folder=n_camera)
 
-    #
-    c1_thread = threading.Thread(target=recorder1.start_recording)  # Camera 1
-    c2_thread = threading.Thread(target=recorder2.start_recording)  # Camera 2
+    # Create Video Writers.
+    video_recorder_list = [VideoRecorder(camera_idx=camera_ids[i], output_path=output_folder_list[i],
+                                         video_duration=video_duration, overlap_time=overlap_time)
+                           for i in range(n_camera)]
+    # Create Threads.
+    thread_list = [threading.Thread(target=video_recorder_list[i].start_recording)
+                   for i in range(n_camera)]
 
-    #
-    c1_thread.start()
-    c2_thread.start()
-
-    # Finish
-    c1_thread.join()
-    c2_thread.join()
+    # Start Running.
+    for thread in thread_list:
+        thread.start()
+    # Stop.
+    for thread in thread_list:
+        thread.join()
