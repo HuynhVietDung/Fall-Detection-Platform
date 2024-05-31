@@ -1,16 +1,35 @@
 import cv2
 import time
 import os
-import math
 from datetime import datetime, timedelta
 import tensorflow as tf
 from tensorflow import keras
+from requests import Session, Request
 
+public_link = "https://jade-managing-damselfly-241.mypinata.cloud/ipfs/"
+secret_key = "7ec381f913be80dcdc3ec4b2a7f85efe30164f0fa90dcd2269d45bcfeef6de1b"
+
+def upload_video(filename):
+    ipfs_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.146 Safari/537.36',
+        'pinata_api_key': "6b14f6032330663fcd57",
+        'pinata_secret_api_key': secret_key
+    }
+    files = [('file', (filename, open(filename, 'rb')))]
+    request = Request(
+        'POST',
+        ipfs_url,
+        headers=headers,
+        files=files
+    ).prepare()
+    response = Session().send(request)
+    return response.json().get('IpfsHash')
 
 class VideoRecorder:
     #  Read and save realtime data from camera.
-    def __init__(self, output_path: str, fall_path: str, camera_idx: int = 0,
-                 video_duration: int = 10, overlap_time: int = 3) -> None:
+    def __init__(self, output_path: str, camera_idx: int = 0,
+                 video_duration: int = 10, overlap_time: int = 0) -> None:
         self.video_capture: cv2.VideoCapture = cv2.VideoCapture(camera_idx)
         self.frame_width: int = int(
             self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -18,7 +37,6 @@ class VideoRecorder:
             self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.fourcc: cv2.Videowriter_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self.output_path: str = output_path
-        self.fall_path: str = fall_path
         self.video_duration: int = video_duration
         self.overlap_time: int = overlap_time  # Overlap time of each two video
         self.fps: int = self.set_fps()  # Frames per second
@@ -45,13 +63,13 @@ class VideoRecorder:
 
         time.sleep(1)  # wait 1s for start camera
 
-        writers = []
+        filename = None
         frame_count = 0
 
         isFall = 0
-        saved_frames = []
-        fall_writer = None
-
+        start_time = -1
+        end_time = -1
+        
         while True:
             ret, frame = self.video_capture.read()
             if not ret:
@@ -59,53 +77,51 @@ class VideoRecorder:
             previousIsFall = isFall
             isFall = self.checkFall(frame)
             if isFall:
-                saved_frames.append(frame)
                 if not previousIsFall:
-                    start_fall = datetime.now()
+                    start_time = int(frame_count/self.fps)
 
-            if not isFall:
-                if len(saved_frames) > self.fps*3-2:
-                    fall_writer = self._start_video_writer(
-                        start_fall, self.fall_path)
-                    for saved_frame in saved_frames:
-                        fall_writer.write(saved_frame)
-                    fall_writer.release()
-                    saved_frames = []
-                    fall_writer = None
+            if not isFall and start_time!=-1:
+                end_time = int(frame_count/self.fps)
+                if end_time-start_time > 2:
+                    print("Here", end_time, start_time) 
+                    writer.release()
+                    frame_count = 0
+                    hash_id = upload_video(filename)
+                    video_url = os.path.join(public_link, hash_id)
+                    video_url = os.path.join(video_url, filename)
+                    filename = os.path.relpath(filename, self.output_path)
+                    f = open(os.path.join("result_folder", f"{filename}.txt"), "a")
+                    f.write(f"{video_url} - {start_time} - {end_time}\n")
+                    f.close()
 
             # Start a new writer when the remaining frames equal the overlap frames
             if frame_count == 0 or frame_count % (self.total_frames - self.overlap_frames) == 0:
-                new_writer = self._start_video_writer(datetime.now())
-                writers.append((new_writer, frame_count + self.total_frames))
+                timenow = datetime.now()
+                writer = self._start_video_writer(timenow)
+                filename = self.create_file_path(timenow)
 
             # Remove writers whose range has ended
-            if writers and frame_count >= writers[0][1]:
-                writers.pop(0)[0].release()
-
-            # Write the frame to all active writers
-            if fall_writer:
-                fall_writer.write(frame)
-            for w, _ in writers:
-                w.write(frame)
+            if frame_count >= self.total_frames:
+                writer.release()
+                frame_count = -1
+            else:
+                writer.write(frame)
 
             frame_count += 1
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-    def create_file_path(self, start_time: datetime, classified_output) -> str:
+    def create_file_path(self, start_time: datetime) -> str:
         """Create file path for video."""
         end_time = start_time + timedelta(seconds=self.video_duration)
         start_timestamp = start_time.strftime("%S-%M-%H-%d-%m-%y")
         end_timestamp = end_time.strftime("%S-%M-%H-%d-%m-%y")
-        if not classified_output:
-            return os.path.join(self.output_path, f"{start_timestamp}__{end_timestamp}_.mp4")
-        else:
-            return os.path.join(classified_output, f"{start_timestamp}__{end_timestamp}_.mp4")
+        return os.path.join(self.output_path, f"{start_timestamp}__{end_timestamp}_.mp4")
 
     def _start_video_writer(self, start_time: datetime, classified_output=None) -> cv2.VideoWriter:
         """ Create cv2.VideoWriter instance for writing video."""
-        file_path = self.create_file_path(start_time, classified_output)
+        file_path = self.create_file_path(start_time)
         return cv2.VideoWriter(file_path, self.fourcc, self.fps, (self.frame_width, self.frame_height))
 
     def cleanup(self) -> None:
@@ -122,7 +138,7 @@ class VideoRecorder:
         detect = self.model.predict(frame, verbose=0)[0]
         label = detect.argmax()
         proba = max(detect)
-        if label < 4 and proba > 0.5:
+        if label < 4 and proba > 0.6:
             return 1
         return 0
 
@@ -136,8 +152,8 @@ if __name__ == "__main__":
     output_folder = "output_folder"
     os.makedirs(output_folder, exist_ok=True)
 
-    fall_folder = "fall_folder"
-    os.makedirs(fall_folder, exist_ok=True)
+    result_folder = "result_folder"
+    os.makedirs(result_folder, exist_ok=True)
 
     recorder = VideoRecorder(output_path=output_folder)
     recorder.start_recording()

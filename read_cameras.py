@@ -18,21 +18,21 @@ def create_folders(out_folder: str, number_of_sub_folder: int = 0) -> List[str]:
 
 
 if __name__ == "__main__":
+    result_folder = "result_folder"
+    os.makedirs(result_folder, exist_ok=True)
+
     output_folder = "output_folder"
-    fall_folder = "fall_folder"
     camera_ids = [0, 1]
     n_camera = 2
     video_duration = 10
-    overlap_time = 7
+    overlap_time = 0
 
     # Create output folder for each camera.
     output_folder_list = create_folders(
         output_folder, number_of_sub_folder=n_camera)
-    fall_folder_list = create_folders(
-        fall_folder, number_of_sub_folder=n_camera)
 
     # Create Video Writers.
-    video_recorder_list = [VideoRecorder(camera_idx=camera_ids[i], output_path=output_folder_list[i], fall_path=fall_folder_list[i],
+    video_recorder_list = [VideoRecorder(camera_idx=camera_ids[i], output_path=output_folder_list[i],
                                          video_duration=video_duration, overlap_time=overlap_time)
                            for i in range(n_camera)]
     # Create Threads.
