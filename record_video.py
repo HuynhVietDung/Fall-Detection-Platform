@@ -93,6 +93,9 @@ class VideoRecorder:
                     f = open(os.path.join("result_folder", f"{filename}.txt"), "a")
                     f.write(f"{video_url} - {start_time} - {end_time}\n")
                     f.close()
+                else:
+                    end_time = -1
+                start_time = -1
 
             # Start a new writer when the remaining frames equal the overlap frames
             if frame_count == 0 or frame_count % (self.total_frames - self.overlap_frames) == 0:
