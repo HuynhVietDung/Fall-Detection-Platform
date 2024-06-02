@@ -34,6 +34,8 @@ https://drive.google.com/drive/u/0/folders/1XdVlmmc3-OnjC98U3DR2wu3mo8H_6BiC
 - mkdir -p $HOME/go/src/github.com/<your_github_userid>
 - cd $HOME/go/src/github.com/<your_github_userid>
 
+****Bổ sung: Cần phải cài đặt Golang.**** 
+
 2. Tải file cài đặt
 
 - curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
