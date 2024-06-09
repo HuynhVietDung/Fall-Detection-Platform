@@ -6,8 +6,8 @@ import tensorflow as tf
 from tensorflow import keras
 from requests import Session, Request
 
-public_link = "https://jade-managing-damselfly-241.mypinata.cloud/ipfs/"
-secret_key = "7ec381f913be80dcdc3ec4b2a7f85efe30164f0fa90dcd2269d45bcfeef6de1b"
+public_link = ""
+secret_key = ""
 
 def upload_video(filename):
     ipfs_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
@@ -83,7 +83,6 @@ class VideoRecorder:
             if not isFall and start_time!=-1:
                 end_time = int(frame_count/self.fps)
                 if end_time-start_time > 2:
-                    print("Here", end_time, start_time) 
                     writer.release()
                     frame_count = 0
                     hash_id = upload_video(filename)
