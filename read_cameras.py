@@ -33,6 +33,7 @@ if __name__ == "__main__":
 
     # Create Video Writers.
     video_recorder_list = [VideoRecorder(camera_idx=camera_ids[i], output_path=output_folder_list[i],
+                                         result_path=result_folder,
                                          video_duration=video_duration, overlap_time=overlap_time)
                            for i in range(n_camera)]
     # Create Threads.

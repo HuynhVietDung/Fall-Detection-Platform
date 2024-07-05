@@ -24,6 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	"io/ioutil"
+	"log"
 )
 
 const (
@@ -36,6 +38,46 @@ const (
 	gatewayPeer  = "peer0.org1.example.com"
 )
 
+func process(contract *client.Contract){
+	maxAttempts := -1
+    attempts := 0
+
+
+    for attempts > maxAttempts {
+        files, err := ioutil.ReadDir("../../result_folder")
+        if err != nil {
+            if os.IsNotExist(err) {
+                log.Println("Directory 'result' does not exist. Retrying...")
+            } else {
+                log.Fatalf("Failed to read directory 'result': %v", err)
+            }
+            attempts++
+            time.Sleep(10 * time.Second) // Wait for a second before retrying
+            continue
+        }
+
+        if len(files) == 0 {
+            attempts++
+            log.Println("No files found. Attempt", attempts)
+            time.Sleep(1 * time.Second) // Wait for a second before retrying
+            continue
+        }
+
+        attempts = 0 // Reset attempts counter if files are found
+
+        for _, file := range files {
+            if !file.IsDir() {
+                filePath := "../../result_folder/" + file.Name()
+                readFileTxtAndCreateAsset(contract, filePath)
+
+                err := os.Remove(filePath)
+                if err != nil {
+                    log.Printf("Failed to remove file %s: %v", filePath, err)
+                }
+            }
+        }
+    }
+}
 
 func main() {
 	// The gRPC client connection should be shared by all Gateway connections to this endpoint
@@ -75,10 +117,12 @@ func main() {
 	network := gw.GetNetwork(channelName)
 	contract := network.GetContract(chaincodeName)
 
-	var filePath= "/Users/huynhvietdung/go/src/github.com/HuynhVietDung/fabric-samples/message.txt"
 
+
+	// var filePath= "/Users/blockchain/Downloads/Fall-Detection-Platform/message.txt"
 	initLedger(contract)
-	readFileTxtAndCreateAsset(contract, filePath)
+	process(contract)
+	// readFileTxtAndCreateAsset(contract, filePath)
 	getAllAssets(contract)
 }
 

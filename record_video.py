@@ -5,11 +5,16 @@ from datetime import datetime, timedelta
 import tensorflow as tf
 from tensorflow import keras
 from requests import Session, Request
+import subprocess
+
+import string
+import random
 
 public_link = ""
 secret_key = ""
 
 def upload_video(filename):
+    time.sleep(1)
     ipfs_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.146 Safari/537.36',
@@ -26,9 +31,16 @@ def upload_video(filename):
     response = Session().send(request)
     return response.json().get('IpfsHash')
 
+def dummy_camera():
+    filename = ''.join(random.choices(string.ascii_uppercase +
+                             string.digits, k=10))
+    return filename
+    
 class VideoRecorder:
     #  Read and save realtime data from camera.
-    def __init__(self, output_path: str, camera_idx: int = 0,
+    def __init__(self, output_path: str, 
+                 result_path: str,
+                 camera_idx: int = 0,
                  video_duration: int = 10, overlap_time: int = 0) -> None:
         self.video_capture: cv2.VideoCapture = cv2.VideoCapture(camera_idx)
         self.frame_width: int = int(
@@ -37,6 +49,7 @@ class VideoRecorder:
             self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.fourcc: cv2.Videowriter_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self.output_path: str = output_path
+        self.result_path: str = result_path
         self.video_duration: int = video_duration
         self.overlap_time: int = overlap_time  # Overlap time of each two video
         self.fps: int = self.set_fps()  # Frames per second
@@ -89,12 +102,24 @@ class VideoRecorder:
                     video_url = os.path.join(public_link, hash_id)
                     video_url = os.path.join(video_url, filename)
                     filename = os.path.relpath(filename, self.output_path)
-                    f = open(os.path.join("result_folder", f"{filename}.txt"), "a")
+                    filename = filename.replace(".mp4", "")
+
+                    f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
                     f.write(f"{video_url} - {start_time} - {end_time}\n")
                     f.close()
                 else:
                     end_time = -1
                 start_time = -1
+            
+            now = datetime.now()
+            if (now.second % 60)==0:
+                hash_id = dummy_camera()
+                filename = hash_id
+                video_url = os.path.join(public_link, hash_id)
+                video_url = os.path.join(video_url, filename)
+                f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
+                f.write(f"{video_url} - {start_time} - {end_time}\n")
+                f.close()
 
             # Start a new writer when the remaining frames equal the overlap frames
             if frame_count == 0 or frame_count % (self.total_frames - self.overlap_frames) == 0:
@@ -157,5 +182,5 @@ if __name__ == "__main__":
     result_folder = "result_folder"
     os.makedirs(result_folder, exist_ok=True)
 
-    recorder = VideoRecorder(output_path=output_folder)
+    recorder = VideoRecorder(output_path=output_folder, result_path=result_folder)
     recorder.start_recording()
