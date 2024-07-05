@@ -29,13 +29,13 @@ import (
 )
 
 const (
-	mspID        = "Org2MSP"
-	cryptoPath   = "../../test-network/organizations/peerOrganizations/org2.example.com"
-	certPath     = cryptoPath + "/users/User1@org2.example.com/msp/signcerts"
-	keyPath      = cryptoPath + "/users/User1@org2.example.com/msp/keystore"
-	tlsCertPath  = cryptoPath + "/peers/peer0.org2.example.com/tls/ca.crt"
+	mspID        = "Org1MSP"
+	cryptoPath   = "../../test-network/organizations/peerOrganizations/org1.example.com"
+	certPath     = cryptoPath + "/users/User1@org1.example.com/msp/signcerts"
+	keyPath      = cryptoPath + "/users/User1@org1.example.com/msp/keystore"
+	tlsCertPath  = cryptoPath + "/peers/peer0.org1.example.com/tls/ca.crt"
 	peerEndpoint = "dns:///localhost:7051"
-	gatewayPeer  = "peer0.org2.example.com"
+	gatewayPeer  = "peer0.org1.example.com"
 )
 
 func process(contract *client.Contract){
@@ -44,7 +44,7 @@ func process(contract *client.Contract){
 
 
     for attempts > maxAttempts {
-        files, err := ioutil.ReadDir("../../result_folder_1")
+        files, err := ioutil.ReadDir("../../result_folder_dummy")
         if err != nil {
             if os.IsNotExist(err) {
                 log.Println("Directory 'result' does not exist. Retrying...")
@@ -67,7 +67,7 @@ func process(contract *client.Contract){
 
         for _, file := range files {
             if !file.IsDir() {
-                filePath := "../../result_folder_1/" + file.Name()
+                filePath := "../../result_folder_dummy/" + file.Name()
                 readFileTxtAndCreateAsset(contract, filePath)
 
                 err := os.Remove(filePath)

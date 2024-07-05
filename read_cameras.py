@@ -1,6 +1,6 @@
 import os
 import threading
-from record_video import VideoRecorder
+from record_video_dummy import VideoRecorder
 from typing import List
 
 
