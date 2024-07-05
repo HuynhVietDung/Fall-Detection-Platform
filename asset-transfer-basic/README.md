@@ -75,7 +75,7 @@ export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.e
 export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
 ```
-8. Sau khi cài đặt thì có thể chạy các lệnh sau dưới quyền của Org1
+8. Sau khi cài đặt thì có thể chạy các lệnh sau dưới quyền của Org2
 
 Truy vấn toàn bộ asset
 ```
