@@ -38,47 +38,6 @@ const (
 	gatewayPeer  = "peer0.org1.example.com"
 )
 
-func process(contract *client.Contract){
-	maxAttempts := -1
-    attempts := 0
-
-
-    for attempts > maxAttempts {
-        files, err := ioutil.ReadDir("../../result_folder_dummy")
-        if err != nil {
-            if os.IsNotExist(err) {
-                log.Println("Directory 'result' does not exist. Retrying...")
-            } else {
-                log.Fatalf("Failed to read directory 'result': %v", err)
-            }
-            attempts++
-            time.Sleep(10 * time.Second) // Wait for a second before retrying
-            continue
-        }
-
-        if len(files) == 0 {
-            attempts++
-            log.Println("No files found. Attempt", attempts)
-            time.Sleep(10 * time.Second) // Wait for a second before retrying
-            continue
-        }
-
-        attempts = 0 // Reset attempts counter if files are found
-
-        for _, file := range files {
-            if !file.IsDir() {
-                filePath := "../../result_folder_dummy/" + file.Name()
-                readFileTxtAndCreateAsset(contract, filePath)
-
-                err := os.Remove(filePath)
-                if err != nil {
-                    log.Printf("Failed to remove file %s: %v", filePath, err)
-                }
-            }
-        }
-    }
-}
-
 func main() {
 	// The gRPC client connection should be shared by all Gateway connections to this endpoint
 	clientConnection := newGrpcConnection()
@@ -117,13 +76,7 @@ func main() {
 	network := gw.GetNetwork(channelName)
 	contract := network.GetContract(chaincodeName)
 
-
-
-	// var filePath= "/Users/blockchain/Downloads/Fall-Detection-Platform/message.txt"
-	initLedger(contract)
 	process(contract)
-	// readFileTxtAndCreateAsset(contract, filePath)
-	getAllAssets(contract)
 }
 
 
@@ -237,11 +190,11 @@ func createAsset(contract *client.Contract, message string) {
 	var now = time.Now()
 	rand.Seed(now.UnixNano())
 	randomNumber := rand.Intn(999999)
-	assetID := fmt.Sprintf("asset%d", now.Unix()*1e3+int64(now.Nanosecond())/1e6 + int64(randomNumber))
+	assetID := fmt.Sprintf("%d", now.Unix()*1e3+int64(now.Nanosecond())/1e6 + int64(randomNumber))
 
 	fmt.Printf("\n--> Submit Transaction: CreateAsset, creates new asset with ID: %s\n", assetID)
 
-	_, err := contract.SubmitTransaction("CreateAsset", assetID, message, "Mark")
+	_, err := contract.SubmitTransaction("CreateAsset", assetID, message)
 	if err != nil {
 		//panic(fmt.Errorf("failed to submit transaction: %w", err))
 		ErrorHandling(err)
@@ -270,29 +223,47 @@ func readFileTxtAndCreateAsset(contract *client.Contract, filePath string) {
 		panic(fmt.Errorf("Error while reading file: %w", err))
 	}
 }
-// Submit transaction asynchronously, blocking until the transaction has been sent to the orderer, and allowing
-// this thread to process the chaincode response (e.g. update a UI) without waiting for the commit notification
-/*
-func transferAssetAsync(contract *client.Contract) {
-	fmt.Printf("\n--> Async Submit Transaction: TransferAsset, updates existing asset owner")
 
-	submitResult, commit, err := contract.SubmitAsync("TransferAsset", client.WithArguments(assetId, "Mark"))
-	if err != nil {
-		panic(fmt.Errorf("failed to submit transaction asynchronously: %w", err))
-	}
+func process(contract *client.Contract){
+	maxAttempts := -1
+    attempts := 0
 
-	fmt.Printf("\n*** Successfully submitted transaction to transfer ownership from %s to Mark. \n", string(submitResult))
-	fmt.Println("*** Waiting for transaction commit.")
 
-	if commitStatus, err := commit.Status(); err != nil {
-		panic(fmt.Errorf("failed to get commit status: %w", err))
-	} else if !commitStatus.Successful {
-		panic(fmt.Errorf("transaction %s failed to commit with status: %d", commitStatus.TransactionID, int32(commitStatus.Code)))
-	}
+    for attempts > maxAttempts {
+        files, err := ioutil.ReadDir("../../result_folder_dummy")
+        if err != nil {
+            if os.IsNotExist(err) {
+                log.Println("Directory 'result_folder_dummy' does not exist. Retrying...")
+            } else {
+                log.Fatalf("Failed to read directory 'result': %v", err)
+            }
+            attempts++
+            time.Sleep(10 * time.Second) // Wait for 10 seconds before retrying
+            continue
+        }
 
-	fmt.Printf("*** Transaction committed successfully\n")
+        if len(files) == 0 {
+            attempts++
+            log.Println("No files found. Attempt", attempts)
+            time.Sleep(10 * time.Second) // Wait for 10 seconds before retrying
+            continue
+        }
+
+        attempts = 0 // Reset attempts counter if files are found
+
+        for _, file := range files {
+            if !file.IsDir() {
+                filePath := "../../result_folder_dummy/" + file.Name()
+                readFileTxtAndCreateAsset(contract, filePath)
+
+                err := os.Remove(filePath)
+                if err != nil {
+                    log.Printf("Failed to remove file %s: %v", filePath, err)
+                }
+            }
+        }
+    }
 }
-*/
 
 // Submit transaction, passing in the wrong number of arguments ,expected to throw an error containing details of any error responses from the smart contract.
 func ErrorHandling(err error) {

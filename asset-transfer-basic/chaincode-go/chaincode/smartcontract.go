@@ -18,18 +18,17 @@ type SmartContract struct {
 type Asset struct {
 	ID             string `json:"ID"`
 	Message        string `json:"message"`
-	Owner          string `json:"owner"`
 }
 
 // InitLedger adds a base set of assets to the ledger
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) error {
 	assets := []Asset{
-		{ID: "asset1", Message: "abcdef" , Owner: "Tomoko"},
-		{ID: "asset2", Message: "abcdef" , Owner: "Brad"},
-		{ID: "asset3", Message: "abcdef" , Owner: "Jin soo"},
-		{ID: "asset4", Message: "abcdef" , Owner: "Max"},
-		{ID: "asset5", Message: "abcdef" , Owner: "Adriana"},
-		{ID: "asset6", Message: "abcdef" , Owner: "Michel"},
+		{ID: "asset1", Message: "abcdef"},
+		{ID: "asset2", Message: "abcdef"},
+		{ID: "asset3", Message: "abcdef"},
+		{ID: "asset4", Message: "abcdef"},
+		{ID: "asset5", Message: "abcdef"},
+		{ID: "asset6", Message: "abcdef"},
 	}
 
 	for _, asset := range assets {
@@ -48,7 +47,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 }
 
 // CreateAsset issues a new asset to the world state with given details.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, message string, owner string) error {
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, message string) error {
 	exists, err := s.AssetExists(ctx, id)
 	if err != nil {
 		return err
@@ -60,7 +59,6 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	asset := Asset{
 		ID:             id,
 		Message:        message,			
-		Owner:          owner,
 	}
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -90,7 +88,7 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, i
 }
 
 // UpdateAsset updates an existing asset in the world state with provided parameters.
-func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, message string, owner string) error {
+func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, message string) error {
 	exists, err := s.AssetExists(ctx, id)
 	if err != nil {
 		return err
@@ -103,7 +101,6 @@ func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
 	asset := Asset{
 		ID:             id,
 		Message:        message,			
-		Owner:          owner,
 	}
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
