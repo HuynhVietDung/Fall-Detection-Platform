@@ -7,9 +7,10 @@ from tensorflow import keras
 from requests import Session, Request
 import string
 import random
+import subprocess
 
-public_link = "https://jade-managing-damselfly-241.mypinata.cloud/ipfs/"
-secret_key = "7ec381f913be80dcdc3ec4b2a7f85efe30164f0fa90dcd2269d45bcfeef6de1b"
+public_link = ""
+secret_key = ""
 
 
 def upload_video(filename):
@@ -24,11 +25,6 @@ def upload_video(filename):
     request = Request("POST", ipfs_url, headers=headers, files=files).prepare()
     response = Session().send(request)
     return response.json().get("IpfsHash")
-
-
-def dummy_camera():
-    filename = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    return filename
 
 
 class VideoRecorder:
@@ -79,23 +75,58 @@ class VideoRecorder:
         isFall = 0
         start_time = -1
         end_time = -1
+
         start_run_time = datetime.now()
 
-        while True and (datetime.now() - start_run_time).seconds <= 60:
-            now = datetime.now()
-            if (now.second % 1) == 0:
-                hash_id = dummy_camera()
-                filename = hash_id
-                video_url = os.path.join(public_link, hash_id)
-                video_url = os.path.join(video_url, filename)
-                f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
-                f.write(f"{video_url} - {start_time} - {end_time}\n")
-                f.close()
+        while True and (datetime.now() - start_run_time).seconds < 200:
+            ret, frame = self.video_capture.read()
+            if not ret:
+                break
+            previousIsFall = isFall
+            isFall = self.checkFall(frame)
+            if isFall:
+                if not previousIsFall:
+                    start_time = int(frame_count / self.fps)
+
+            if not isFall and start_time != -1:
+                end_time = int(frame_count / self.fps)
+                if end_time - start_time > 2:
+                    writer.release()
+                    frame_count = 0
+                    hash_id = upload_video(filename)
+                    video_url = os.path.join(public_link, hash_id)
+                    video_url = os.path.join(video_url, filename)
+                    filename = os.path.relpath(filename, self.output_path)
+                    filename = filename.replace(".mp4", "")
+
+                    f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
+                    f.write(f"{video_url} - {start_time} - {end_time}\n")
+                    f.close()
+
+                else:
+                    end_time = -1
+                start_time = -1
+
+            # Start a new writer when the remaining frames equal the overlap frames
+            if (
+                frame_count == 0
+                or frame_count % (self.total_frames - self.overlap_frames) == 0
+            ):
+                timenow = datetime.now()
+                writer = self._start_video_writer(timenow)
+                filename = self.create_file_path(timenow)
+
+            # Remove writers whose range has ended
+            if frame_count >= self.total_frames:
+                writer.release()
+                frame_count = -1
+            else:
+                writer.write(frame)
+
+            frame_count += 1
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
-
-        print("Total time: ", datetime.now() - start_run_time)
 
     def create_file_path(self, start_time: datetime) -> str:
         """Create file path for video."""
@@ -129,7 +160,8 @@ class VideoRecorder:
         detect = self.model.predict(frame, verbose=0)[0]
         label = detect.argmax()
         proba = max(detect)
-        if label < 4 and proba > 0.6:
+        # if label < 4 and proba > 0.6:
+        if label < 4:
             return 1
         return 0
 
@@ -140,10 +172,10 @@ class VideoRecorder:
 
 if __name__ == "__main__":
     # Create a folder saving collected data
-    output_folder = "output_folder"
+    output_folder = "output_folder_2"
     os.makedirs(output_folder, exist_ok=True)
 
-    result_folder = "result_folder_dummy"
+    result_folder = "result_folder_2"
     os.makedirs(result_folder, exist_ok=True)
 
     recorder = VideoRecorder(

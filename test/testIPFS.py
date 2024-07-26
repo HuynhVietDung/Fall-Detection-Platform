@@ -8,8 +8,8 @@ from requests import Session, Request
 import string
 import random
 
-public_link = "https://jade-managing-damselfly-241.mypinata.cloud/ipfs/"
-secret_key = "7ec381f913be80dcdc3ec4b2a7f85efe30164f0fa90dcd2269d45bcfeef6de1b"
+public_link = ""
+secret_key = ""
 
 
 def upload_video(filename):
@@ -47,7 +47,7 @@ class VideoRecorder:
         self.fps: int = self.set_fps()  # Frames per second
         self.total_frames = int(self.video_duration * self.fps)
         self.overlap_frames = int(overlap_time * self.fps)
-        model_directory = os.path.join("model", "2403_model.h5")
+        model_directory = os.path.join("model", "2303_model.h5")
         self.model = keras.models.load_model(model_directory, compile=False)
 
     def set_fps(self) -> int:
@@ -79,30 +79,6 @@ class VideoRecorder:
             ret, frame = self.video_capture.read()
             if not ret:
                 break
-            previousIsFall = isFall
-            isFall = self.checkFall(frame)
-            if isFall:
-                if not previousIsFall:
-                    start_time = int(frame_count / self.fps)
-
-            if not isFall and start_time != -1:
-                end_time = int(frame_count / self.fps)
-                if end_time - start_time > 2:
-                    writer.release()
-                    frame_count = 0
-                    hash_id = upload_video(filename)
-                    video_url = os.path.join(public_link, hash_id)
-                    video_url = os.path.join(video_url, filename)
-                    filename = os.path.relpath(filename, self.output_path)
-                    filename = filename.replace(".mp4", "")
-
-                    f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
-                    f.write(f"{video_url} - {start_time} - {end_time}\n")
-                    f.close()
-
-                else:
-                    end_time = -1
-                start_time = -1
 
             # Start a new writer when the remaining frames equal the overlap frames
             if (
@@ -116,7 +92,10 @@ class VideoRecorder:
             # Remove writers whose range has ended
             if frame_count >= self.total_frames:
                 writer.release()
-                frame_count = -1
+                start_run_time = datetime.now()
+                hash_id = upload_video(filename)
+                print("Total time: ", (datetime.now() - start_run_time).seconds)
+
             else:
                 writer.write(frame)
 
@@ -157,7 +136,8 @@ class VideoRecorder:
         detect = self.model.predict(frame, verbose=0)[0]
         label = detect.argmax()
         proba = max(detect)
-        if label < 4 and proba > 0.6:
+        # if label < 4 and proba > 0.6:
+        if label < 4:
             return 1
         return 0
 
@@ -167,14 +147,11 @@ class VideoRecorder:
 
 
 if __name__ == "__main__":
-    # Create a folder saving collected data
-    output_folder = "output_folder"
+    output_folder = "output_folder_test"
     os.makedirs(output_folder, exist_ok=True)
 
-    result_folder = "result_folder_1"
+    result_folder = "result_folder_test"
     os.makedirs(result_folder, exist_ok=True)
 
-    recorder = VideoRecorder(
-        camera_idx=1, output_path=output_folder, result_path=result_folder
-    )
+    recorder = VideoRecorder(output_path=output_folder, result_path=result_folder)
     recorder.start_recording()
