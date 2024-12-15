@@ -1,30 +1,16 @@
-import cv2
-import time
-import os
 from datetime import datetime, timedelta
-import tensorflow as tf
-from tensorflow import keras
-from requests import Session, Request
-import string
+from model_inference import ModelInference
+from ipfs_transfer import IPFSTransfer
+import cv2
+import os
 import random
+import time
+import argparse
 
+# Paste IPFS Gateway link and API Key here
 public_link = ""
-secret_key = ""
-
-
-def upload_video(filename):
-    # time.sleep(1)
-    ipfs_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
-    headers = {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.146 Safari/537.36",
-        "pinata_api_key": "6b14f6032330663fcd57",
-        "pinata_secret_api_key": secret_key,
-    }
-    files = [("file", (filename, open(filename, "rb")))]
-    request = Request("POST", ipfs_url, headers=headers, files=files).prepare()
-    response = Session().send(request)
-    return response.json().get("IpfsHash")
-
+api_key = ""
+secret_key = ""    
 
 class VideoRecorder:
     #  Read and save realtime data from camera.
@@ -47,33 +33,34 @@ class VideoRecorder:
         self.fps: int = self.set_fps()  # Frames per second
         self.total_frames = int(self.video_duration * self.fps)
         self.overlap_frames = int(overlap_time * self.fps)
-        model_directory = os.path.join("model", "2303_model.h5")
-        self.model = keras.models.load_model(model_directory, compile=False)
+
+        # Create a folder saving collected data
+        os.makedirs(self.output_folder, exist_ok=True)
+        os.makedirs(self.result_folder, exist_ok=True)
 
     def set_fps(self) -> int:
         """Set fps for camera."""
         try:
-            frame_rate = self.video_capture.get(cv2.CAP_PROP_FPS)
-            return int(frame_rate)
+            return int(self.video_capture.get(cv2.CAP_PROP_FPS))
         except ValueError:
-            # set default FPS values
-            self.video_capture.set(cv2.CAP_PROP_FPS, 12)
+            self.video_capture.set(cv2.CAP_PROP_FPS, 12)  # set default FPS values
             return 12
 
     def start_recording(self) -> None:
-        """Record using multiple VideoWriter method for overlapping."""
+        """Record using VideoWriter."""
         if not self.video_capture.isOpened():  # check for camera is opened
-            print("Error: Could not open camera.")
-            return
+            raise Exception("Error: Could not open camera.")
 
         time.sleep(1)  # wait 1s for start camera
 
-        filename = None
+        # Initialize variables
+        file_name = None
         frame_count = 0
-
-        isFall = 0
+        isFall = False
         start_time = -1
         end_time = -1
+        model = ModelInference(os.path.join("model", "2303_model.h5"))
+        ipfs_transfer = IPFSTransfer(public_link, api_key, secret_key)
 
         while True:
             ret, frame = self.video_capture.read()
@@ -82,25 +69,19 @@ class VideoRecorder:
 
             str_time = datetime.now()
             previousIsFall = isFall
-            isFall = self.checkFall(frame)
-            if isFall:
-                if not previousIsFall:
-                    start_time = int(frame_count / self.fps)
+            isFall = model.inference(frame)
+
+            if isFall and not previousIsFall:
+                start_time = int(frame_count / self.fps)
 
             if not isFall and start_time != -1:
                 end_time = int(frame_count / self.fps)
                 if end_time - start_time > 2:
                     writer.release()
                     frame_count = 0
-                    hash_id = upload_video(filename)
-                    video_url = os.path.join(public_link, hash_id)
-                    video_url = os.path.join(video_url, filename)
-                    filename = os.path.relpath(filename, self.output_path)
-                    filename = filename.replace(".mp4", "")
-
-                    f = open(os.path.join(self.result_path, f"{filename}.txt"), "w")
-                    f.write(f"{video_url} - {start_time} - {end_time}\n")
-                    f.close()
+                    cid = ipfs_transfer.upload_video(file_name, api_key, secret_key)
+                    video_url = ipfs_transfer.get_url(cid, file_name)
+                    self.make_txt(file_name, video_url, start_time, end_time)
                     print("Time: ", (datetime.now() - start_time).seconds)
                 else:
                     end_time = -1
@@ -113,7 +94,7 @@ class VideoRecorder:
             ):
                 timenow = datetime.now()
                 writer = self._start_video_writer(timenow)
-                filename = self.create_file_path(timenow)
+                file_name = self.create_file_path(timenow)
 
             # Remove writers whose range has ended
             if frame_count >= self.total_frames:
@@ -126,6 +107,11 @@ class VideoRecorder:
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
+    
+    def make_txt(self, file_name: str, video_url: str, start_time: str, end_time: str) -> None:
+        file_name = os.path.relpath(file_name, self.output_path).replace(".mp4", "")
+        with open(os.path.join(self.result_path, f"{file_name}.txt"), "w") as f:
+            f.write(f"{video_url} - {start_time} - {end_time}\n")
 
     def create_file_path(self, start_time: datetime) -> str:
         """Create file path for video."""
@@ -150,31 +136,25 @@ class VideoRecorder:
         self.video_capture.release()
         cv2.destroyAllWindows()
 
-    def checkFall(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        frame = cv2.resize(frame, (32, 32))
-        frame = tf.keras.utils.img_to_array(frame)
-        frame = tf.expand_dims(frame, 0)
-        frame = frame / 255.0
-        detect = self.model.predict(frame, verbose=0)[0]
-        label = detect.argmax()
-        proba = max(detect)
-        if label < 4:
-            return 1
-        return 0
-
     def __del__(self) -> None:
         if self.video_capture.isOpened():
             self.cleanup()
 
 
 if __name__ == "__main__":
-    # Create a folder saving collected data
-    output_folder = "output_folder"
-    os.makedirs(output_folder, exist_ok=True)
+    # Initialize the parser
+    parser = argparse.ArgumentParser(description="Process a file with path and index.")
 
-    result_folder = "result_folder_1"
-    os.makedirs(result_folder, exist_ok=True)
+    # Add arguments for path and index
+    parser.add_argument("vid_dir", type=str, help="Directoy of video files.")
+    parser.add_argument("txt_dir", type=str, help="Directoy of txt files.")
+    parser.add_argument("idx", type=int, help="Index value of camera.")
 
-    recorder = VideoRecorder(output_path=output_folder, result_path=result_folder)
+    # Parse the arguments
+    args = parser.parse_args()
+    output_folder, result_folder, camera_idx = args.vid_dir, args.txt_dir, args.idx
+
+    # Stat video streaming
+    recorder = VideoRecorder(output_path=output_folder, camera_idx=camera_idx, result_path=result_folder)
     recorder.start_recording()
+

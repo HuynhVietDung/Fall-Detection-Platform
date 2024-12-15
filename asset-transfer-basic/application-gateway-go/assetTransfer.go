@@ -26,19 +26,61 @@ import (
 	"google.golang.org/grpc/status"
 	"io/ioutil"
 	"log"
+	"flag"
 )
 
-const (
-	mspID        = "Org2MSP"
-	cryptoPath   = "../../test-network/organizations/peerOrganizations/org2.example.com"
-	certPath     = cryptoPath + "/users/User1@org2.example.com/msp/signcerts"
-	keyPath      = cryptoPath + "/users/User1@org2.example.com/msp/keystore"
-	tlsCertPath  = cryptoPath + "/peers/peer0.org2.example.com/tls/ca.crt"
-	peerEndpoint = "dns:///localhost:9051"
-	gatewayPeer  = "peer0.org2.example.com"
+// const (
+// 	mspID        = "Org1MSP"
+// 	cryptoPath   = "../../test-network/organizations/peerOrganizations/org1.example.com"
+// 	certPath     = cryptoPath + "/users/User1@org1.example.com/msp/signcerts"
+// 	keyPath      = cryptoPath + "/users/User1@org1.example.com/msp/keystore"
+// 	tlsCertPath  = cryptoPath + "/peers/peer0.org1.example.com/tls/ca.crt"
+// 	peerEndpoint = "dns:///localhost:7051"
+// 	gatewayPeer  = "peer0.org1.example.com"
+// )
+
+// const (
+// 	mspID        = "Org2MSP"
+// 	cryptoPath   = "../../test-network/organizations/peerOrganizations/org2.example.com"
+// 	certPath     = cryptoPath + "/users/User1@org2.example.com/msp/signcerts"
+// 	keyPath      = cryptoPath + "/users/User1@org2.example.com/msp/keystore"
+// 	tlsCertPath  = cryptoPath + "/peers/peer0.org2.example.com/tls/ca.crt"
+// 	peerEndpoint = "dns:///localhost:9051"
+// 	gatewayPeer  = "peer0.org2.example.com"
+// )
+
+var (
+	mspID        string
+	cryptoPath   string
+	certPath     string
+	keyPath      string
+	tlsCertPath  string
+	peerEndpoint string
+	gatewayPeer  string
 )
 
 func main() {
+	// Define flags for CLI arguments
+	MspID := flag.String("mspID", "", "The MSP ID of the organization.")
+	CryptoPath := flag.String("cryptoPath", "", "The path to the crypto materials for the organization.")
+	CertPath := flag.String("certPath", "", "The path to the user's certificate file.")
+	KeyPath := flag.String("keyPath", "", "The path to the user's private key file.")
+	TlsCertPath := flag.String("tlsCertPath", "", "The path to the TLS certificate for secure communication.")
+	PeerEndpoint := flag.String("peerEndpoint", "", "The endpoint of the peer to connect to (e.g., host:port).")
+	GatewayPeer := flag.String("gatewayPeer", "", "The name of the gateway peer for the Fabric network.")
+
+	// Parse the flags
+	flag.Parse()
+
+	// Assign the parsed values to "constant-like" variables
+	mspID        = *MspID
+	cryptoPath   = *CryptoPath
+	certPath     = cryptoPath + *CertPath
+	keyPath      = cryptoPath + *KeyPath
+	tlsCertPath  = cryptoPath + *TlsCertPath
+	peerEndpoint = *PeerEndpoint
+	gatewayPeer  = *GatewayPeer
+
 	// The gRPC client connection should be shared by all Gateway connections to this endpoint
 	clientConnection := newGrpcConnection()
 	defer clientConnection.Close()
